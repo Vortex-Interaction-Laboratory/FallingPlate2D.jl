@@ -59,10 +59,15 @@ Related group work: permeable plates (Bose et al. 2025), permeable disks
   the default `release` channel. Confirmed working. Launch with
   `julia -t 4 --project=.`
 - `gh` authenticated as `ignaziomviola`; git and Homebrew present.
-- **Repository skeleton already exists at `~/Developer/FallingPlate2D.jl`**
-  (git initialised on `main`, one commit: MIT licence + `.gitignore`).
+- **Repository at `~/Developer/FallingPlate2D.jl`**, git on `main`.
   Deliberately **outside OneDrive** — git indexes and OneDrive sync corrupt
-  each other, and simulation output must never sync.
+  each other, and simulation output must never sync. `logs/` is ignored.
+- Package environment: `Project.toml` has WaterLily v1.8.0 and StaticArrays.
+  A second environment `examples/` adds ParametricBodies and Plots for the
+  upstream example only; keep plotting out of the package dependencies.
+- **Julia buffers stdout when redirected to a file.** Every long script must
+  `flush(stdout)` after each progress line or the log stays empty until exit.
+  macOS has no `timeout` command.
 
 ---
 
@@ -113,47 +118,80 @@ singularity; their velocity scale and `I*` definitions above assume that.
 WaterLily uses the boundary data immersion method, which smears the interface
 over ca. 2 cells. **Need ca. 8 cells across the thickness**, so `Δ ≈ c/(8χ)`.
 
-| Mode | Setup | Grid | Expected |
+| Mode | Setup | Grid | Measured (Phase A, 4 threads, Float64) |
 |---|---|---|---|
-| **Toy** | `χ = 4`, `Δ = c/32`, domain 8c × 16c | 256 × 512 | 2–4 min |
-| **Check** | `χ = 10`, `Δ = c/80`, domain 8c × 16c | 640 × 1280 | 20–40 min |
+| **Toy** | `χ = 4`, `Δ = c/32`, domain 8c × 16c | 258 × 514 | 42–50 ms/step, `Δt ≈ 0.35` cells, ca. 92 steps per `c/v` → **6.5–8 min per 100 `c/v`** |
+| **Check** | `χ = 10`, `Δ = c/80`, domain 8c × 16c | 642 × 1282 | 100 ms/step, `Δt ≈ 0.2–0.3` cells, ca. 320 steps per `c/v` → **ca. 55 min per 100 `c/v`** |
 
-These are estimates on 4 threads, **to be measured, not trusted**. Thin plates
-are where BDIM costs you; a thicker section is what buys the toy-mode
-turnaround.
+Measured on 11 September 2026 with `scripts/phaseA_timing.jl` for a freely
+rotating ellipse with re-measurement every step; free translation adds two
+more moment/force evaluations per step, so expect ca. 10 % more. Cost per
+cell-step is 125 ns on the check grid and 375 ns on the toy grid (thread
+efficiency is poor on the small grid). Poisson iterations were 1–3 per step
+in stable runs. Thin plates are where BDIM costs you; a thicker section is
+what buys the toy-mode turnaround.
 
 Use `T = Float64`.
 
 ---
 
-## 8. WaterLily API — verify before building
+## 8. WaterLily API — verified against v1.8.0 (Phase A, 11 September 2026)
 
-Confirmed present in
-[WaterLily-Examples](https://github.com/WaterLily-jl/WaterLily-Examples):
+- `RigidMap(x₀, θ; xₚ, V, ω)` exists and is exported. Fields: centre `x₀`,
+  angle `θ`, pivot offset `xₚ`, linear velocity `V`, angular velocity `ω`.
+  Update with `sim.body = setmap(sim.body; θ, ω, V, x₀)`; then
+  `sim_step!(sim; remeasure=true)`. Use `AutoBody(sdf, RigidMap(...))` with a
+  signed-distance function in body coordinates (the `RigidMap` docstring
+  pattern); no need for ParametricBodies.
+- Forces and moments: `pressure_force`, `viscous_force`, `total_force`,
+  `pressure_moment(x₀, sim)`, `viscous_moment`, `total_moment` — all present.
+  The upstream ellipse example uses the pressure moment only; **use
+  `total_moment` in Phase B**, viscous damping matters for a thin plate at
+  `Re ≤ 1000`.
+- Body force keyword is **`g(i, x, t)`** — three arguments, not two.
+- Far-field velocity `uBC` may be a function `uBC(i, x, t)`; WaterLily then
+  adds `dU/dt` to the momentum equation automatically by forward-mode
+  differentiation of that function. A closure reading the body velocity from
+  mutable state differentiates to zero, so **supply the frame acceleration
+  explicitly through `g`** (the rigid-body integrator knows it exactly) and
+  feed the far-field velocity through a `Ref`.
+- `sim_step!(sim; udf=f, kwargs...)` calls `f` on the right-hand side in both
+  predictor and corrector: the hook for an explicit Brinkman term (Phase C).
+- The implicit-added-mass update `α = (M + Iₐα)/(Iₛ + Iₐ)` in the upstream
+  `TwoD_FreeRotatingEllipse.jl` is the scheme Phase B proposes. It works for
+  their case (`χ = 2`, `ρ* = 1`, off-centre pivot).
 
-- `TwoD_FreeRotatingEllipse.jl` — ellipse free to rotate about a pivot under
-  fluid forces. **Closest starting point: your problem with translation locked.**
-- `TwoD_CircleVIV.jl` — vortex-induced vibration, body ODEs via OrdinaryDiffEq.jl.
-- `TwoD_SlowStartCircle.jl` — accelerating reference frame, time-dependent BCs.
-- Force functions: `total_force(sim)`, `pressure_force(sim)`, `viscous_force(sim)`.
-- `g(i,t)` keyword — spatially uniform, time-varying body force. This is both
-  gravity and the non-inertial frame term.
+### Coupling stability finding (Phase A)
 
-**Uncertain:** `RigidMap` (storing linear/angular position and velocity, updated
-via `update!`) appears in current documentation but **not** in the 2024 CPC
-paper, so it is a recent addition. **Verify it exists in the installed version
-before designing around it.**
+A thin ellipse (`χ = 10`, `ρ* = 2`, `Re = 1000` or `100`) free to rotate
+about its centre in a unit stream reaches broadside within 0.6 `c/v` with
+`ω c/v ≈ 5` (the Munk moment does ca. `(π/2)(a² − b²)u²` of work, which
+gives exactly this `ω`). Beyond `ω c/v ≈ 5` (tip speed ca. 2.5 `u`) the
+pressure moment grows tenfold in twenty steps, `Δt` collapses by four orders
+of magnitude, and the run stalls. Heavy (`ρ* = 20`) or thick (`χ = 4`)
+plates never reach that `ω` and are stable. Over-estimating the added
+inertia in the implicit term (`k Iₐ`, `k = 2, 4`) does **not** help, so this
+is not the classical added-mass relaxation instability; it is a breakdown of
+BDIM/pressure integration for a body moving faster than ca. 2 `u`.
+
+Relevance: Andersen's tumbling plates have mean `ω c/v ≈ 0.35`, an order of
+magnitude below the threshold, so free fall should stay clear of it. Phase B
+must nonetheless (i) abort on `|ω| c/v > 10` or `Δt < 10⁻³` cells and log the
+state, (ii) start from rest with the plate slightly inclined, not from an
+impulsive unit stream, and (iii) if `ω c/v` exceeds ca. 2 in free fall,
+investigate before trusting results. Scripts: `scripts/phaseA_diag.jl`,
+`scripts/phaseA_stability.jl`, `scripts/phaseA_relax.jl`; logs in `logs/`.
 
 ---
 
 ## 9. Build plan
 
-### Phase A — verify the API (~1–2 h)
-Add WaterLily to the project (`julia -t 4 --project=.` then
-`] add WaterLily`), run `TwoD_FreeRotatingEllipse.jl` unmodified, confirm the
-force functions, the `g(i,t)` keyword, and whether `RigidMap` exists. Report
-what the installed version actually provides. **This phase validates the whole
-plan — do it first and report before proceeding.**
+### Phase A — verify the API — **DONE 11 September 2026**
+Environment created, API verified (section 8), runtimes measured (section
+7), coupling stability probed (section 8). Outcome: the plan stands.
+`scripts/phaseA_timing_defs.jl` already contains a Float64 ellipse SDF,
+`make_sim`, and the rotation loop — the seed for `src/bodies.jl` and
+`src/rigid.jl`.
 
 ### Phase B — 3-DOF free fall (~1 day, highest risk)
 - Body signed distance function for an ellipse/plate parameterised by `χ`.
@@ -163,6 +201,8 @@ plan — do it first and report before proceeding.**
   trajectories affordable — the plate falls O(100) chords, and a lab-frame
   domain would be absurd.
 - Rigid-body integration: solve `(M + M_a)·a = F_fluid + (M − ρ_f·V)·g`.
+  Use `total_force`/`total_moment`, not pressure only. Add the abort guards
+  from section 8.
 - **Treat added mass implicitly.** The added-mass tensor for an ellipse with
   semi-axes `a, b` is analytic (Lamb): `m₁₁ = ρ_f·π·b²`, `m₂₂ = ρ_f·π·a²`,
   `I_a = (π/8)·ρ_f·(a² − b²)²`. Moving it to the left-hand side removes the
