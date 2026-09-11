@@ -1,0 +1,28 @@
+"""
+FallingPlate2D — a thin layer over WaterLily.jl for a freely falling 2D plate
+section in a quiescent fluid, solved in a frame translating with the plate.
+
+Units: lengths in grid cells, fluid density 1, velocity scale `U = 1` equal to
+the gravitational speed `sqrt(2(ρ − 1) f g)`, where `f` is the thickness.
+
+Frames. Lab coordinates `(X, Y)`: `X` horizontal, `Y` vertical upwards, gravity
+along `−Y`. Grid coordinates `(x, y) = (−Y, X)`: the plate falls towards `−x`,
+so the far-field flow in the plate frame is along `+x`, leaves through the
+convective exit at `x = xmax`, and the lateral direction `y` is periodic. The
+body angle `θ` is anticlockwise about `z`; the chord angle from the horizontal
+is `φ = θ − π/2`, positive anticlockwise, so `φ = 0` is broadside to the fall.
+"""
+module FallingPlate2D
+
+using WaterLily, StaticArrays, LinearAlgebra, Printf
+
+export Ellipse, RoundedPlate, area, inertia, added_mass, andersen_Istar
+export RigidState, PlateDynamics, FallingPlateSim, falling_plate, step!, run!, rigid_velocity_fill!
+export summarise, to_lab, to_grid
+
+include("bodies.jl")
+include("rigid.jl")
+include("simulation.jl")
+include("diagnostics.jl")
+
+end
