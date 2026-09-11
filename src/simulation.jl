@@ -146,16 +146,18 @@ end
 const CSV_HEADER = "t,X,Y,phi,vX,vY,omega,FX,FY,M,dt,pois"
 
 """
-    run!(fp; tend, out=nothing, every=0.05, report=1.0, ωmax=10, Δt_min=1e-3)
+    run!(fp; tend, out=nothing, every=0.05, report=1.0, ωmax=10, vmax=4, Δt_min=1e-3)
 
 Advance to `tend` convective times `c/U`. Writes a CSV row every `every`
 convective times to `out` (nondimensional: lengths by `c`, velocities by `U`,
 forces by `U²c`, moment by `U²c²`, angular velocity by `U/c`), prints one line
 per `report` convective times, and aborts if the state is not finite, if
-`|ω| c/U > ωmax`, or if `Δt < Δt_min` cells. Returns `:done` or `:aborted`.
+`|ω| c/U > ωmax`, if `|v| > vmax·U` (a plate diving edge-on at several `U`
+makes the realised `Re` meaningless and the CFL step tiny), or if
+`Δt < Δt_min` cells. Returns `:done` or `:aborted`.
 """
 function run!(fp::FallingPlateSim; tend, out=nothing, every=0.05, report=1.0,
-              ωmax=10.0, Δt_min=1e-3)
+              ωmax=10.0, vmax=4.0, Δt_min=1e-3)
     sim, s, L, U = fp.sim, fp.state, fp.L, fp.U
     io = out === nothing ? nothing : open(out, "w")
     io === nothing || println(io, CSV_HEADER)
@@ -176,7 +178,8 @@ function run!(fp::FallingPlateSim; tend, out=nothing, every=0.05, report=1.0,
                 t, s.X[1]/L, s.X[2]/L, chord_angle(s.θ), s.v[1]/U, s.v[2]/U, ω⁺, Δt, time() - t0)
             flush(stdout); next_rep += report
         end
-        bad = !all(isfinite, s.v) || !isfinite(s.ω) || abs(ω⁺) > ωmax || Δt < Δt_min
+        bad = !all(isfinite, s.v) || !isfinite(s.ω) || abs(ω⁺) > ωmax || Δt < Δt_min ||
+              sqrt(sum(abs2, s.v)) > vmax*U
         if bad
             u = sim.flow.u; N = size(sim.flow.p)
             mag = [sqrt(sum(abs2, @view u[I, :])) for I in CartesianIndices(N)]

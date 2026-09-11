@@ -108,8 +108,27 @@ plates in water, `ν = 0.0089 cm²/s`:
 **Use the `β = 1/14`, `Re = 1147` row as the primary target** — the user's own
 OpenFOAM paper validated against it, so there is a published comparison curve.
 
-Note Andersen et al. used an **elliptical** cross-section to avoid the corner
-singularity; their velocity scale and `I*` definitions above assume that.
+Andersen et al. define `Re = c⟨vy⟩/ν` on the **mean descent speed** and
+`I* = 32 I/(π ρ_f c⁴)` with the **rectangular** inertia `I = ρ_s c f (c² + f²)/12`,
+so `I* = (8/3π) ρ* β (1 + β²)`; that reproduces table 1. For an ellipse the
+same definition gives `I* = ρ* β (1 + β²)/2`, i.e. 59 % of the rectangle's
+value at equal `ρ*` and `β`. Their DNS therefore used a **thicker ellipse,
+`β = 1/8`, with the density ratio chosen to match `I*`**: `I* = 0.16` needs
+`ρ* = 2.52`. That is the validation configuration for this code:
+
+    julia -t 4 --project=. examples/free_fall.jl 8 2.52 2090 64 60 name
+
+(`Re_g = 2090` on the gravitational speed gives `Re ≈ 1147` on `⟨vy⟩` if
+`⟨vy⟩ ≈ 0.55 U` as in the experiment; report the realised value.)
+
+**Thin-plate result (Phase B, 12 September 2026):** the literal plate,
+`χ = 14`, `ρ* = 2.7` (`I* = 0.097` as an ellipse), at `L = 80` glides,
+rises briefly at the end of the glide, drops edge-on at `φ ≈ −1.3` and
+accelerates almost without drag to `6 U` over 15 chords while turning only
+slowly (`ω c/U` 0.1–0.5); the energy budget of a frictionless edge-on drop
+allows `9 U`, so this is coherent low-`I*` 2D dynamics, but it drives `Re` to
+ten times the target and `Δt` to 0.03 cells. `run!` now aborts at `|v| > 4 U`.
+Log: `logs/phaseB_andersen_thin_b14_L80_dive.log`.
 
 ---
 
