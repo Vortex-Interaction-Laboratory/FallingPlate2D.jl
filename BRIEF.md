@@ -166,26 +166,47 @@ Use `T = Float64`.
   including package compilation and 650 plot frames. Log:
   `logs/phaseA_upstream.log`.
 
-### Coupling stability finding (Phase A)
+### Two WaterLily pitfalls found in Phase B (both fixed in `src/simulation.jl`)
 
-A thin ellipse (`χ = 10`, `ρ* = 2`, `Re = 1000` or `100`) free to rotate
-about its centre in a unit stream reaches broadside within 0.6 `c/v` with
-`ω c/v ≈ 5` (the Munk moment does ca. `(π/2)(a² − b²)u²` of work, which
-gives exactly this `ω`). Beyond `ω c/v ≈ 5` (tip speed ca. 2.5 `u`) the
-pressure moment grows tenfold in twenty steps, `Δt` collapses by four orders
-of magnitude, and the run stalls. Heavy (`ρ* = 20`) or thick (`χ = 4`)
-plates never reach that `ω` and are stable. Over-estimating the added
-inertia in the implicit term (`k Iₐ`, `k = 2, 4`) does **not** help, so this
-is not the classical added-mass relaxation instability; it is a breakdown of
-BDIM/pressure integration for a body moving faster than ca. 2 `u`.
+1. **Convective exit under a coupled body acceleration.** WaterLily's
+   `exitBC=true` recomputes and flux-corrects the exit only in the predictor;
+   the corrector and projection keep that value while the uniform body force
+   `g` has changed the interior flux, so the pressure problem is slightly
+   incompatible every step. With a prescribed smooth acceleration this is
+   harmless; with the body acceleration fed back from the plate force the
+   error grows and the run dies at the exit face within ca. 4 `c/U` (any
+   density ratio, with or without periodic sides, faster with smaller `Δt`).
+   Fix: `update_exit!` recomputes the first-order upwind exit profile once per
+   step from the start-of-step velocity, flux-corrects it to the new far-field
+   speed, and serves it through the `uBC` function, so every `BC!` call in the
+   step sees the same consistent values. Use `exitBC=false` in `Simulation`.
+2. **Interior body velocity.** `measure!` fills the imposed velocity `V` only
+   within `2 + ϵ` cells of the surface and leaves it zero deeper inside. For a
+   moving (translating or rotating) body thicker than ca. 6 cells the interior
+   velocity is discontinuous and has divergence where the Poisson operator has
+   no coefficients; the unremovable residual gives an interior pressure of
+   O(10⁴) that leaks into the surface band. Consequence: force *along* the
+   motion (3× too large) and a pressure moment that *drives* the rotation.
+   **This, not a coupling instability, was the `ω c/U ≈ 5` blow-up seen in
+   Phase A**, and it explains why the maintainers' thin-body examples work.
+   Fix: `rigid_velocity_fill!` sets `V = v + ω × r` on every face with
+   `μ₀ == 0` after `measure!`; interior pressure becomes smooth, drag opposes
+   the motion, and the pressure moment damps the rotation.
 
-Relevance: Andersen's tumbling plates have mean `ω c/v ≈ 0.35`, an order of
-magnitude below the threshold, so free fall should stay clear of it. Phase B
-must nonetheless (i) abort on `|ω| c/v > 10` or `Δt < 10⁻³` cells and log the
-state, (ii) start from rest with the plate slightly inclined, not from an
-impulsive unit stream, and (iii) if `ω c/v` exceeds ca. 2 in free fall,
-investigate before trusting results. Scripts: `scripts/phaseA_diag.jl`,
-`scripts/phaseA_stability.jl`, `scripts/phaseA_relax.jl`; logs in `logs/`.
+Verified after the fixes (`scripts/phaseB_fillcheck.jl`): first-step
+acceleration equals `(m − A)g/(m + m₂₂)` with Lamb's `m₂₂` to 1 %; plate
+translating at `0.5 U` has `C_D = 2.5` against the motion; constant rotation
+at `ω c/U = 0.5` gives `M c⁻²U⁻² = −0.009`; the 3-DOF fall of a `χ = 4`,
+`ρ* = 2.7`, `Re = 500` ellipse flutters stably for 12 `c/U` at `<vY> = −0.64 U`.
+
+Translational coupling: since the far fluid accelerates with the frame there
+is no pressure gradient at infinity, so the update is exactly
+`(m + Mₐ)·a_new = F + Mₐ·a_old + (m − A)·g` with `Mₐ` the lab-frame added-mass
+tensor — no displaced-volume term beyond buoyancy. Convention: forces and
+moments on the body are `−total_force(sim)` and `−total_moment(x₀, sim)[1]`.
+
+Guards kept in `run!`: abort on non-finite state, `|ω| c/U > 10`, or
+`Δt < 10⁻³` cells, printing where `|u|` is largest (exit face vs body).
 
 ---
 
@@ -198,7 +219,7 @@ Environment created, API verified (section 8), runtimes measured (section
 `make_sim`, and the rotation loop — the seed for `src/bodies.jl` and
 `src/rigid.jl`.
 
-### Phase B — 3-DOF free fall (~1 day, highest risk)
+### Phase B — 3-DOF free fall — **code done 12 September 2026; validation run below**
 - Body signed distance function for an ellipse/plate parameterised by `χ`.
 - **Translating frame:** keep the body near the domain centre; apply the
   negative frame acceleration as a uniform body force through `g(i,t)`; set the
@@ -238,18 +259,27 @@ Tests, GitHub Actions running the fast ones, README, examples.
 
 ---
 
-## 10. Planned repository layout
+## 10. Repository layout (as built)
 
 ```
 FallingPlate2D.jl
-├── BRIEF.md          # this file
-├── src/bodies.jl     # SDFs: plate, ellipse, perforated plate, parameterised by χ
-├── src/rigid.jl      # 3-DOF body (x, y, θ): gravity, buoyancy, implicit added mass
-├── src/darcy.jl      # Brinkman resistance in the BDIM forcing, parameterised by Da
-├── src/diagnostics.jl
-├── examples/
-└── test/             # validation against Andersen et al. (2005)
+├── BRIEF.md              # this file
+├── Project.toml          # WaterLily 1.8, StaticArrays; Test in [extras]
+├── src/FallingPlate2D.jl # module; frames and conventions in the docstring
+├── src/bodies.jl         # Ellipse, RoundedPlate: SDF, area, inertia, added mass, I*
+├── src/rigid.jl          # RigidState, PlateDynamics, implicit-added-mass step!
+├── src/simulation.jl     # falling_plate, step!, run!, update_exit!, rigid_velocity_fill!
+├── src/diagnostics.jl    # readrun, summarise (10-line comparison with Andersen)
+├── src/darcy.jl          # Phase C (to do)
+├── examples/free_fall.jl # driver: julia -t 4 --project=. examples/free_fall.jl χ ρ Re L tend name
+├── examples/             # own Project.toml (Plots, ParametricBodies) for the upstream example
+├── scripts/phaseA_*.jl, phaseB_*.jl   # diagnostics that produced the findings above
+├── test/runtests.jl      # fast checks (< 1 min): properties, signs, interior pressure, short fall
+├── out/  logs/           # ignored by git; simulation CSVs and session logs
 ```
+
+Run a case: `julia -t 4 --project=. examples/free_fall.jl 14 2.7 2090 80 60 name`
+(χ, ρ*, Re_g, L cells, tend in c/U, output name). Tests: `julia --project=. -e 'using Pkg; Pkg.test()'`.
 
 ---
 
