@@ -158,8 +158,13 @@ Use `T = Float64`.
 - `sim_step!(sim; udf=f, kwargs...)` calls `f` on the right-hand side in both
   predictor and corrector: the hook for an explicit Brinkman term (Phase C).
 - The implicit-added-mass update `α = (M + Iₐα)/(Iₛ + Iₐ)` in the upstream
-  `TwoD_FreeRotatingEllipse.jl` is the scheme Phase B proposes. It works for
-  their case (`χ = 2`, `ρ* = 1`, off-centre pivot).
+  `TwoD_FreeRotatingEllipse.jl` is the scheme Phase B proposes. Run
+  unmodified on this laptop (`examples/run_upstream_ellipse.jl`, Float32,
+  384 × 256): both cases complete, the chaotic one (`χ = 2`, `ρ* = 1`,
+  pivot −0.16, 50 `c/v`) with `|ω| c/v ≤ 1.2`, the stable one (`χ ≈ 8`,
+  pivot 0.25, `Re = 250`) inverting to 165° and stopping; 27 min in total
+  including package compilation and 650 plot frames. Log:
+  `logs/phaseA_upstream.log`.
 
 ### Coupling stability finding (Phase A)
 
