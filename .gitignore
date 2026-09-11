@@ -1,0 +1,20 @@
+# Julia
+Manifest.toml
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+/docs/build/
+.CondaPkg/
+
+# Simulation output — never commit, never sync
+out/
+data/
+*.vtk
+*.vti
+*.h5
+*.jld2
+*.mp4
+*.gif
+
+# macOS
+.DS_Store
