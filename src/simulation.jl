@@ -35,10 +35,11 @@ it does with a coupled body acceleration) the corrector and projection see an
 incompatible flux, and the error feeds back through the plate force and grows.
 `update_exit!` recomputes the profile once per step from the start-of-step
 velocity, then every `BC!` call in the step sees the same, flux-consistent
-values. `exitBC=false` gives a plain Dirichlet exit (for diagnostics only).
+values. `exit=:waterlily` uses WaterLily's `exitBC=true`, `exit=:dirichlet` a
+plain Dirichlet exit (both for diagnostics).
 """
 function falling_plate(; χ=14.0, ρ=2.7, Re=2090.0, L=80, dom=(8, 8), xbody=3,
-                        shape=:ellipse, φ₀=0.1, T=Float64, Δt_max=0.5, free=(true, true, true), perdir=(2,), exitBC=true)
+                        shape=:ellipse, φ₀=0.1, T=Float64, Δt_max=0.5, free=(true, true, true), perdir=(2,), exit=:own)
     sec = shape == :ellipse ? Ellipse(L, χ) : RoundedPlate(L, χ)
     U = 1.0
     g = U^2/(2(ρ - 1)*thickness(sec))
@@ -52,13 +53,14 @@ function falling_plate(; χ=14.0, ρ=2.7, Re=2090.0, L=80, dom=(8, 8), xbody=3,
     N1, N2 = dom[1]*L + 2, dom[2]*L + 2           # array sizes including ghosts
     uexit = zeros(N2)
     xexit = N1 - 2.5                                # loc(1, I)[1] = N1 - 2 on the exit face
-    uBC = exitBC ? ((i, x, t) -> (i == 1 && x[1] > xexit) ? uexit[round(Int, x[2] + 1.5)] : Ufar[][i]) :
-                   ((i, x, t) -> Ufar[][i])
+    exit in (:own, :waterlily, :dirichlet) || throw(ArgumentError("exit must be :own, :waterlily or :dirichlet"))
+    uBC = exit == :own ? ((i, x, t) -> (i == 1 && x[1] > xexit) ? uexit[round(Int, x[2] + 1.5)] : Ufar[][i]) :
+                         ((i, x, t) -> Ufar[][i])
     gfun = (i, x, t) -> afluid[][i]
     sim = Simulation((dom[1]*L, dom[2]*L), uBC, L; U, ν, g=gfun, body, T,
-                     perdir, exitBC=false)
+                     perdir, exitBC=(exit == :waterlily))
     FallingPlateSim(sim, state, dyn, sec, Ufar, afluid, x₀, Float64(L), U, ν, g, Δt_max, free,
-                    uexit, exitBC)
+                    uexit, exit == :own)
 end
 
 """

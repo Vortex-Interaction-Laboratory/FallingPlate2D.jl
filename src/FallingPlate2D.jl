@@ -6,11 +6,12 @@ Units: lengths in grid cells, fluid density 1, velocity scale `U = 1` equal to
 the gravitational speed `sqrt(2(ρ − 1) f g)`, where `f` is the thickness.
 
 Frames. Lab coordinates `(X, Y)`: `X` horizontal, `Y` vertical upwards, gravity
-along `−Y`. Grid coordinates `(x, y) = (−Y, X)`: the plate falls towards `−x`,
-so the far-field flow in the plate frame is along `+x`, leaves through the
-convective exit at `x = xmax`, and the lateral direction `y` is periodic. The
-body angle `θ` is anticlockwise about `z`; the chord angle from the horizontal
-is `φ = θ − π/2`, positive anticlockwise, so `φ = 0` is broadside to the fall.
+along `−Y`. Grid coordinates `(x, y) = (Y, −X)` (same handedness): the plate
+falls towards `−x`, so the far-field flow in the plate frame is along `+x`,
+enters at `x = 0` and leaves through the convective exit at `x = xmax`; the
+lateral direction `y` is periodic. The body angle `θ` is anticlockwise about
+`z`; the chord line makes the angle `φ = θ − π/2` with the horizontal,
+positive anticlockwise, so `φ = 0` is broadside to the fall.
 """
 module FallingPlate2D
 

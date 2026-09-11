@@ -168,18 +168,21 @@ Use `T = Float64`.
 
 ### Two WaterLily pitfalls found in Phase B (both fixed in `src/simulation.jl`)
 
-1. **Convective exit under a coupled body acceleration.** WaterLily's
-   `exitBC=true` recomputes and flux-corrects the exit only in the predictor;
-   the corrector and projection keep that value while the uniform body force
-   `g` has changed the interior flux, so the pressure problem is slightly
-   incompatible every step. With a prescribed smooth acceleration this is
-   harmless; with the body acceleration fed back from the plate force the
-   error grows and the run dies at the exit face within ca. 4 `c/U` (any
-   density ratio, with or without periodic sides, faster with smaller `Δt`).
-   Fix: `update_exit!` recomputes the first-order upwind exit profile once per
-   step from the start-of-step velocity, flux-corrects it to the new far-field
-   speed, and serves it through the `uBC` function, so every `BC!` call in the
-   step sees the same consistent values. Use `exitBC=false` in `Simulation`.
+1. **Flow direction and the convective exit.** WaterLily's `exitBC=true`
+   is a first-order *upwind* convection of the exit profile at the mean inflow
+   speed, valid only for flow towards `+x`. In the first Phase B runs the grid
+   was oriented so that the plate fell towards `+x`, i.e. the relative flow
+   ran from `xmax` to `0`: the scheme became downwind and the coupled run died
+   at the exit face within ca. 4 `c/U`, while the wake hit a Dirichlet wall
+   three chords behind the plate (a `χ = 14` plate then dived edge-on to
+   `5 U`). With the grid oriented as documented in `src/FallingPlate2D.jl`
+   (fall towards `−x`, relative flow `+x`) WaterLily's exit is stable in the
+   coupled 1-DOF fall. The default `exit=:own` (`update_exit!`) reproduces the
+   same scheme through the `uBC` function but freezes the profile when the
+   far-field speed becomes negative, which happens briefly when a fluttering
+   plate rises at the end of a glide; `exit=:waterlily` and `exit=:dirichlet`
+   remain available for comparison. An earlier note here blamed a
+   predictor–corrector flux inconsistency; that was wrong.
 2. **Interior body velocity.** `measure!` fills the imposed velocity `V` only
    within `2 + ϵ` cells of the surface and leaves it zero deeper inside. For a
    moving (translating or rotating) body thicker than ca. 6 cells the interior

@@ -25,8 +25,9 @@ end
 
 @testset "frames" begin
     @test to_lab(to_grid(SA[1.0, 2.0])) == SA[1.0, 2.0]
-    @test to_grid(SA[0.0, -1.0]) == SA[1.0, 0.0]   # falling (−Y) is +x in the grid
-    @test FP.chord_dir(π/2) ≈ SA[1.0, 0.0]         # θ = π/2 is a horizontal chord
+    @test to_grid(SA[0.0, -1.0]) == SA[-1.0, 0.0]  # falling (−Y) is −x in the grid: relative flow +x
+    @test abs(FP.chord_dir(π/2)[1]) ≈ 1 && abs(FP.chord_dir(π/2)[2]) < 1e-12   # θ = π/2 is a horizontal chord
+    @test FP.chord_dir(1.0)' * FP.normal_dir(1.0) ≈ 0 atol = 1e-12
 end
 
 @testset "drag opposes relative motion" begin

@@ -39,14 +39,15 @@ function PlateDynamics(s::Section, ρ, g)
     PlateDynamics(ρ*area(s), area(s), ρ*inertia(s), m11, m22, Ia, SA[0.0, -g])
 end
 
-# grid (x, y) = (−Y, X)
-to_grid(v::SVector{2}) = SA[-v[2], v[1]]
-to_lab(w::SVector{2}) = SA[w[2], -w[1]]
+# grid (x, y) = (Y, −X): the plate falls towards −x, the relative far-field
+# flow is +x and leaves through the exit at x = xmax; z is unchanged.
+to_grid(v::SVector{2}) = SA[v[2], -v[1]]
+to_lab(w::SVector{2}) = SA[-w[2], w[1]]
 
-"Chord and normal unit vectors in the lab frame for body angle θ."
-chord_dir(θ) = SA[sin(θ), -cos(θ)]
-normal_dir(θ) = SA[cos(θ), sin(θ)]
-chord_angle(θ) = θ - π/2      # φ, from the horizontal
+"Chord and normal unit vectors in the lab frame for body angle θ (body x-axis is (cos θ, sin θ) in the grid)."
+chord_dir(θ) = SA[-sin(θ), cos(θ)]
+normal_dir(θ) = SA[-cos(θ), -sin(θ)]
+chord_angle(θ) = θ - π/2      # φ, angle of the chord line from the horizontal, anticlockwise
 
 "Added-mass tensor in the lab frame."
 function added_mass_tensor(d::PlateDynamics, θ)
