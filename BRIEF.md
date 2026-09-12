@@ -329,7 +329,7 @@ Toy free-fall sweep (`scripts/phaseC_sweep.jl`, `χ = 4`, `ρ* = 2.7`,
 | 0 | −0.53 | −0.18 | −0.38 | 266 | fluttering |
 | 10⁻⁴ | −0.68 | 0.02 | 0.04 | 340 | steady, broadside |
 | 10⁻³ | −1.54 | 0.00 | 0.00 | 770 | steady, broadside |
-| 10⁻² | −2.11 | −0.02 | 0.00 | 1054 | steady; stopped by the `Δt`/speed guard as it kept accelerating |
+| 10⁻² | −2.11 | −0.02 | 0.00 | 1054 | steady; run stopped at 6.4 `c/U` by the `|v| > 4U` guard, still accelerating (values are over 0–6.4 `c/U`) |
 
 Permeability kills the flutter already at `Da = 10⁻⁴` and the descent speed
 then rises steeply with `Da`, as for permeable disks (Cummins et al. 2017).
