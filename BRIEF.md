@@ -274,7 +274,19 @@ BDIM, and afterwards the trajectories decorrelate (chaotic tumbling). All
 three end in an edge-on dive that trips the `|v| > 4U` guard (42.6, 23.6,
 22.7 `c/U`), so the dive is not a resolution artefact. Long-time statistics
 therefore need either a guard-free run or an understanding of the edge-on
-stall; `Re_g = 1500` is being tried. Data: `out/andersen_dns_b8_L{64,96,128}.csv`.
+stall. Data: `out/andersen_dns_b8_L{64,96,128}.csv`.
+
+**Lower `Re_g` removes the dives.** The same case with `Re_g = 1500`
+(`out/andersen_Re1500_L64.csv`, figure `.png`) ran the full 60 `c/U` without
+tripping any guard: steady tumbling, 2.5 revolutions in the last 30 `c/U`,
+`⟨ω⟩ c/|⟨vy⟩| = 1.01` (Andersen 0.857), `⟨vx⟩/|⟨vy⟩| = 1.24` (2.20),
+`⟨vy⟩ = −0.53 U`, but `Re` on `⟨vy⟩` is now 792 (target 1147). The realised
+`Re` is ca. 0.53–0.62 `Re_g`; `Re_g ≈ 1900` should land near 1147 and is the
+baseline of the Darcy sweep below. The horizontal drift ratio is robustly
+ca. 1.2–1.3 against Andersen's 2.2 at both `Re_g`; that discrepancy, not the
+angular velocity, is the one to chase (candidates: 2D vs the experiment's
+finite span, the elliptical vs rectangular section, `I*` matched on the
+ellipse inertia, resolution of the tip vortices).
 
 **Operational lesson:** never edit a shell script while a chain launched from
 it is still running — zsh reads it incrementally and executes the new bytes
@@ -359,7 +371,22 @@ then rises steeply with `Da`, as for permeable disks (Cummins et al. 2017).
 At `Da = 10⁻²` the plate is nearly transparent and has no terminal speed
 within 20 `c/U` at this `Re_g`.
 
-To do: free-fall sweeps in `Da` at fixed `I*`, `Re` (the research question);
+Free fall at the Andersen inertia (`χ = 8`, `ρ* = 2.52`, `Re_g = 2090`,
+`L = 64`, `scripts/chain_runs.sh`): `Da = 10⁻⁴` → steady broadside descent at
+`1.26 U` for 60 `c/U`, no tumbling, no flutter (`Re` on `⟨vy⟩` = 2630);
+`Da = 10⁻³` and `10⁻²` → the plate is nearly transparent and accelerates past
+`4 U` within 3 `c/U` (guard). **The governing group is `Re·Da`:** the
+dimensionless Brinkman resistance is `σc/U = 1/(Re·Da)`, so at `Re ≈ 10³` the
+transition from impermeable-like to transparent lies at `Da ≈ 10⁻⁶–10⁻⁴`, an
+order of magnitude below the held-plate test at `Re = 200`. In that range the
+screening length `c√Da` is 0.06–0.6 cells at `L = 64`: the Brinkman layer is
+not resolved, but for a thin plate the physics is the lumped pressure drop
+`σ f u_seep`, which does not need it. Sweep `Da = 0, 10⁻⁶, 10⁻⁵, 3·10⁻⁵, 10⁻⁴`
+at `Re_g = 1900` running (`scripts/chain_da_sweep.sh`, logs `logs/chain_da.log`,
+`out/sweep_Re1900_*.csv`).
+
+To do: analyse the sweep (regime, `⟨vy⟩`, `⟨ω⟩` vs `Da`); compare with
+Bose et al. (2025);
 a check against Bose et al. (2025) / Cummins et al. (2017) drag curves;
 momentum-balance force.
 
