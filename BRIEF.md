@@ -241,7 +241,33 @@ Environment created, API verified (section 8), runtimes measured (section
 `make_sim`, and the rotation loop — the seed for `src/bodies.jl` and
 `src/rigid.jl`.
 
-### Phase B — 3-DOF free fall — **code done 12 September 2026; validation run below**
+### Phase B — 3-DOF free fall — **DONE 12 September 2026**
+
+**Validation result** (`examples/free_fall.jl 8 2.52 2090 64 60`, ellipse
+`χ = 8`, `ρ* = 2.52`, `I* = 0.160`, 514 × 514 cells, 8 cells across the
+thickness, 67 ms/step, aborted by the `|v| > 4U` guard at 42.6 `c/U` during a
+fast glide; means over 12.6–42.6 `c/U`, log `logs/phaseB_andersen_b8_L64.log`,
+data `out/andersen_dns_b8_L64.csv`, figure `.png` alongside):
+
+| quantity | this code | Andersen et al. table 1, `β = 1/14` |
+|---|---|---|
+| regime | tumbling, 2.7 revolutions in 30 `c/U` | tumbling |
+| `⟨ω⟩ c/|⟨vy⟩|` | 0.90 | 0.857 |
+| `Re = c|⟨vy⟩|/ν` | 1290 | 1147 |
+| `⟨vx⟩/|⟨vy⟩|` | 1.24 | 2.20 |
+| `⟨vy⟩/U` | −0.62 | −0.55 |
+
+The tumbling is more irregular than in the experiment: phases of steady
+tumbling alternate with long glides reaching `2–3 U`, and the plate briefly
+rises at the end of some glides. Andersen's trajectories are periodic with
+`vy` between 0.3 and 0.9 `v_g` and no rising. Likely causes, to be tested in
+that order: (i) resolution — the boundary layer is ca. 2 cells thick at
+`L = 64`, `Re = 1300`; repeat at `L = 96` and `128` (ca. 1 h and 2.5 h per
+60 `c/U`); (ii) time step — `Δt_max = 0.5` cells while the plate is slow;
+(iii) `Re_g` — lower it so the realised `Re` is 1147; (iv) the periodic
+lateral domain of 8 chords when the plate drifts 20 chords. The user's
+OpenFOAM results (Pandi et al.) are the quantitative reference for the same
+case. The `χ = 14` literal plate is discussed in section 6.
 - Body signed distance function for an ellipse/plate parameterised by `χ`.
 - **Translating frame:** keep the body near the domain centre; apply the
   negative frame acceleration as a uniform body force through `g(i,t)`; set the

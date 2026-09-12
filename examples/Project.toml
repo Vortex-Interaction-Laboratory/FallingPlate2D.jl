@@ -1,5 +1,9 @@
 [deps]
+FallingPlate2D = "e00b35ee-df2a-4d3e-9fcb-e869cc9e5fc7"
 ParametricBodies = "06905c2e-4b4a-4765-8bb9-c6b6b2b99b1d"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 WaterLily = "ed894a53-35f9-47f1-b17f-85db9237eebd"
+
+[sources]
+FallingPlate2D = {path = ".."}
