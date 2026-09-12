@@ -257,16 +257,28 @@ data `out/andersen_dns_b8_L64.csv`, figure `.png` alongside):
 | `⟨vx⟩/|⟨vy⟩|` | 1.24 | 2.20 |
 | `⟨vy⟩/U` | −0.62 | −0.55 |
 
-**Resolution check (12 September 2026, afternoon).** The same case at
-`L = 96` (12 cells across the thickness, 770 × 770, 105 ms/step) follows the
-`L = 64` trajectory to within 2 % in position, angle and velocity for the
-first 8 `c/U` — a glide, a flip and a rise — and separates only in the fast
-dive at `t ≈ 10`, after which the two tumble differently (chaotic
-sensitivity, not a resolution error). Both end in an edge-on dive that trips
-the `|v| > 4U` guard (`L = 64` at 42.6 `c/U`, `L = 96` at 23.6 `c/U`), so
-long-time statistics need either a longer, guard-free run or an answer to
-why the plate stalls edge-on; `Re_g = 1500` is being tried. `L = 128` result:
-see below when available. Data: `out/andersen_dns_b8_L{64,96,128}.csv`.
+**Resolution check (12 September 2026).** The same case at `L = 64, 96, 128`
+(8, 12, 16 cells across the thickness; 67, 105, 165 ms/step):
+
+| `t` (`c/U`) | `X/c` 64 / 96 / 128 | `Y/c` 64 / 96 / 128 | `φ` 64 / 96 / 128 | `vY/U` 64 / 96 / 128 |
+|---|---|---|---|---|
+| 4 | 0.27 / 0.26 / 0.25 | −1.56 / −1.54 / −1.54 | 0.07 / 0.07 / 0.06 | −0.43 / −0.44 / −0.44 |
+| 8 | −1.02 / −0.96 / −0.93 | −3.31 / −3.33 / −3.35 | −1.48 / −1.47 / −1.45 | −0.80 / −0.84 / −0.85 |
+| 10 | 0.24 / 0.51 / 0.67 | −6.67 / −6.49 / −6.29 | −0.53 / −0.37 / −0.25 | −1.48 / −1.04 / −0.71 |
+| 12 | 2.83 / 2.62 / 2.40 | −5.77 / −5.56 / −5.48 | 2.09 / 1.57 / 1.57 | 0.10 / −0.20 / −0.62 |
+
+Through the first glide, flip and rise (`t ≤ 8`) the three agree to 2–3 %;
+in the fast dive at `t ≈ 10` the successive differences shrink by a factor
+ca. 0.6 per 1.5× refinement, i.e. first-order convergence as expected for
+BDIM, and afterwards the trajectories decorrelate (chaotic tumbling). All
+three end in an edge-on dive that trips the `|v| > 4U` guard (42.6, 23.6,
+22.7 `c/U`), so the dive is not a resolution artefact. Long-time statistics
+therefore need either a guard-free run or an understanding of the edge-on
+stall; `Re_g = 1500` is being tried. Data: `out/andersen_dns_b8_L{64,96,128}.csv`.
+
+**Operational lesson:** never edit a shell script while a chain launched from
+it is still running — zsh reads it incrementally and executes the new bytes
+with the old function definitions. Copy the script before editing.
 
 The tumbling is more irregular than in the experiment: phases of steady
 tumbling alternate with long glides reaching `2–3 U`, and the plate briefly
