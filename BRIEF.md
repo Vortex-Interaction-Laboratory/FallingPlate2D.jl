@@ -381,11 +381,29 @@ transition from impermeable-like to transparent lies at `Da ≈ 10⁻⁶–10⁻
 order of magnitude below the held-plate test at `Re = 200`. In that range the
 screening length `c√Da` is 0.06–0.6 cells at `L = 64`: the Brinkman layer is
 not resolved, but for a thin plate the physics is the lumped pressure drop
-`σ f u_seep`, which does not need it. Sweep `Da = 0, 10⁻⁶, 10⁻⁵, 3·10⁻⁵, 10⁻⁴`
-at `Re_g = 1900` running (`scripts/chain_da_sweep.sh`, logs `logs/chain_da.log`,
-`out/sweep_Re1900_*.csv`).
+`σ f u_seep`, which does not need it. **Sweep at `Re_g = 1900`, `L = 64`, 60 `c/U`** (`scripts/chain_da_sweep.sh`,
+table `scripts/sweep_table.jl`, figure `out/sweep_Re1900.png`; means over the
+last 30 `c/U`, or the last 60 % of an aborted run):
 
-To do: analyse the sweep (regime, `⟨vy⟩`, `⟨ω⟩` vs `Da`); compare with
+| `Da` | `Re_g·Da` | ran to (`c/U`) | `⟨vy⟩/U` | `⟨vx⟩/U` | `⟨ω⟩ c/U` | `Re` on `⟨vy⟩` | motion |
+|---|---|---|---|---|---|---|---|
+| 0 | 0 | 33.8 (guard) | −0.75 | 0.18 | 0.13 | 1415 | intermittent tumbling, glides, final dive |
+| 10⁻⁶ | 0.002 | 25.2 (guard) | −0.93 | 0.28 | 0.16 | 1761 | as impermeable |
+| 10⁻⁵ | 0.019 | 60 | −0.52 | −0.10 | −0.05 | 986 | fluttering, no tumbling |
+| 3·10⁻⁵ | 0.057 | 60 | −0.70 | 0.03 | 0.03 | 1334 | weak flutter |
+| 10⁻⁴ | 0.19 | 60 | −1.18 | 0.00 | 0.00 | 2242 | steady broadside |
+
+Permeability suppresses tumbling between `Re·Da ≈ 0.002` and `0.02`, and the
+descent speed is **non-monotonic in `Da`**: the stabilised broadside plate at
+`Da = 10⁻⁵` falls 30 % slower than the tumbling impermeable plate, because
+broadside is the maximum-drag attitude, and only beyond that does seepage
+speed the descent up. This is the first result of the research direction and
+the one to check against Bose et al. (2025) and, quantitatively, with the
+OpenFOAM setup. Each point is one 60-`c/U` run at one resolution; the
+impermeable and `10⁻⁶` points are truncated by the speed guard.
+
+To do: repeat the sweep at `L = 96` for the three complete points; finer `Da`
+between `10⁻⁶` and `10⁻⁵` to locate the tumbling–flutter boundary; compare with
 Bose et al. (2025);
 a check against Bose et al. (2025) / Cummins et al. (2017) drag curves;
 momentum-balance force.
