@@ -1,0 +1,10 @@
+include(joinpath(@__DIR__, "gust_cases.jl"))
+fp = case(D2; L=32, dom=(8, 8))
+header(fp, "PILOT D2")
+mkpath("out")
+run!(fp; tend=20.0, out="out/pilot.csv", every=0.05, report=2.0)
+r = FP.readrun("out/pilot.csv")
+for t in (5, 10, 15, 20)
+    k = argmin(abs.(r.t .- t))
+    @printf("t=%4.1f  vY=%7.4f  φ=%8.5f  ω=%8.5f  Re=%6.0f\n", r.t[k], r.vY[k], r.phi[k], r.omega[k], abs(r.vY[k])*fp.L/fp.ν)
+end

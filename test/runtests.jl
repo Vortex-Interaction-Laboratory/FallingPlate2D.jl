@@ -73,3 +73,44 @@ end
     @test useep[1] ≈ 0 atol = 1e-6
     @test 0 < useep[2] < useep[3] < 1.1
 end
+
+@testset "gust profiles" begin
+    for iso in (true, false)
+        g = Gust(; dir=[0, 1], GR=1.0, t₀=15.0, T_G=2.0, isolated=iso)
+        @test gust_velocity(g, 14.0) == 0 && gust_acceleration(g, 14.0) == 0
+        @test gust_velocity(g, 16.0) ≈ (iso ? 1.0 : 0.5)        # isolated peaks at mid-period
+        @test gust_velocity(g, 18.0) ≈ (iso ? 0.0 : 1.0)        # isolated returns the fluid to rest
+        dt = 1e-4; ts = 14:dt:19
+        @test sum(gust_acceleration(g, t) for t in ts)*dt ≈ (iso ? 0.0 : 1.0) atol = 1e-6
+        @test sum(gust_velocity(g, t) for t in ts)*dt ≈ gust_displacement(g, 19.0) atol = 1e-4
+    end
+    @test gust_velocity(Gust(; GR=1.0, T_G=2.0, isolated=true), 17.0) ≈ 0 atol = 1e-12
+    @test peak_acceleration(Gust(; GR=1.0, T_G=2.0, isolated=true)) ≈ π/2
+end
+
+@testset "gust does not displace a body that ignores the fluid" begin
+    # With no fluid force the isolated gust must leave the earth-frame altitude
+    # unchanged: the body keeps its velocity and the air returns to rest.
+    g = Gust(; dir=[0, 1], GR=1.0, t₀=2.0, T_G=2.0, isolated=true)
+    d = PlateDynamics(Ellipse(32, 10), 1.0, 0.04; A=0.0)
+    Z = map((NOGUST, g)) do gu
+        s = RigidState(π/2); Δt = 1e-3
+        for n in 1:20_000
+            t = n*Δt
+            FP.step!(s, d, SA[0.0, 0.0], 0.0, Δt; gust=gust_acceleration(gu, t)*gu.dir)
+        end
+        s.X[2] + gust_displacement(gu, 20.0)
+    end
+    @test Z[2] ≈ Z[1] rtol = 1e-3
+end
+
+@testset "bottom-heavy plate is pendulum-stable" begin
+    # The fluid force acts at the plate centre, the weight at the offset centre
+    # of gravity: a tilted plate must feel a restoring moment.
+    d = PlateDynamics(Ellipse(32, 10), 1.0, 0.04; e=1.16*32, A=0.0)
+    for φ in (0.2, -0.2)
+        s = RigidState(π/2 + φ)
+        FP.step!(s, d, SA[0.0, 1.0], 0.0, 1e-6)     # upward drag, no moment about the centre
+        @test sign(s.α) == -sign(φ)                  # rotates the chord back towards horizontal
+    end
+end

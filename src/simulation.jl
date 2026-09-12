@@ -17,18 +17,33 @@ struct FallingPlateSim{S<:Section}
     uexit::Vector{Float64}           # convective-exit x-velocity profile (all y indices)
     convective_exit::Bool
     Da::Float64                      # Darcy number K/c²; 0 = impermeable
+    gust::Gust
 end
 
 """
     falling_plate(; χ, ρ, Re, L, dom, xbody, shape, φ₀, T, Δt_max)
+    falling_plate(; χ, m, Ga, Da, e, I_O, L, gust, ...)
 
-Build a plate of chord `L` cells and chord-to-thickness ratio `χ`, density
-ratio `ρ`, released from rest at chord angle `φ₀` from the horizontal.
-`Re = c·U/ν` with `U = sqrt(2(ρ − 1) f g) = 1` the gravitational velocity
-scale (the realised Reynolds number on the mean descent speed is reported by
-`summarise`). Domain `dom .* L` cells, plate centre `xbody` chords from the
-inflow, lateral direction periodic, convective exit downstream. `Da > 0`
-makes the plate permeable (Darcy–Brinkman, see `darcy.jl`).
+Build a plate of chord `L` cells and chord-to-thickness ratio `χ`, released
+from rest at chord angle `φ₀` from the horizontal, in a domain of `dom .* L`
+cells with the plate centre `xbody` chords from the inflow, the lateral
+direction periodic and a convective exit downstream. `Da > 0` makes the plate
+permeable (Darcy–Brinkman, see `darcy.jl`).
+
+Two conventions are available for the weight.
+
+  - **Buoyant plate** (default): density ratio `ρ`, `Re = c·U/ν` with
+    `U = sqrt(2(ρ − 1) f g) = 1`, weight `(m − A)g` — the convention of
+    Andersen et al. (2005).
+  - **Permeable plate**, used when `m` is given: the convention of Pandi
+    et al. (JFM 2026) and Bose & Viola (2023). Lengths are scaled on the plate
+    length, velocities on the gravitational velocity `u_g ≡ (m̂ĝ/ρ̂l̂²)^(1/2)`, so
+    that the nondimensional gravity is `g = 1/m`; buoyancy is null because the
+    solid volume of a filamentous body is negligible; and `Ga ≡ u_g·c/ν` (pass
+    `Ga`, or equivalently `Re`, both being `1/ν`). The centre of gravity may
+    be offset from the plate centre by `e` plate lengths along the body normal,
+    with `I_O` the moment of inertia about the plate centre. `gust` applies the
+    gust of `gust.jl` as a transient change of the gravitational force.
 
 The convective exit is implemented here through the boundary function rather
 than with WaterLily's `exitBC=true`: WaterLily recomputes and flux-corrects its
@@ -41,12 +56,24 @@ values. `exit=:waterlily` uses WaterLily's `exitBC=true`, `exit=:dirichlet` a
 plain Dirichlet exit (both for diagnostics).
 """
 function falling_plate(; χ=14.0, ρ=2.7, Re=2090.0, L=80, dom=(8, 8), xbody=3,
-                        shape=:ellipse, φ₀=0.1, T=Float64, Δt_max=0.5, free=(true, true, true), perdir=(2,), exit=:own, Da=0.0)
+                        shape=:ellipse, φ₀=0.1, T=Float64, Δt_max=0.5, free=(true, true, true),
+                        perdir=(2,), exit=:own, Da=0.0,
+                        m=nothing, Ga=nothing, e=0.0, I_O=nothing, gust=NOGUST)
     sec = shape == :ellipse ? Ellipse(L, χ) : RoundedPlate(L, χ)
     U = 1.0
-    g = U^2/(2(ρ - 1)*thickness(sec))
+    Ga === nothing || (Re = Ga)
     ν = U*L/Re
-    dyn = PlateDynamics(sec, ρ, g)
+    if m === nothing                                   # buoyant plate (Andersen convention)
+        g = U^2/(2(ρ - 1)*thickness(sec))
+        dyn = PlateDynamics(sec, ρ, g)
+    else                                               # permeable plate (Pandi convention)
+        g = U^2/(m*L)                                  # g = 1/m, in grid units
+        mg, eg = m*L^2, e*L                            # mass per unit span and offset, grid units
+        IO = I_O === nothing ? m*(1 + 1/χ^2)/12 + m*e^2 : I_O
+        IG = (IO - m*e^2)*L^4                          # inertia about the centre of gravity
+        IG > 0 || throw(ArgumentError("I_O = \$IO is below m·e² = \$(m*e^2)"))
+        dyn = PlateDynamics(sec, 1.0, g; e=eg, A=0.0, Is=IG, m=mg)
+    end
     θ₀ = π/2 + φ₀
     state = RigidState(θ₀)
     Ufar = Ref(SA[0.0, 0.0]); afluid = Ref(SA[0.0, 0.0])
@@ -62,7 +89,7 @@ function falling_plate(; χ=14.0, ρ=2.7, Re=2090.0, L=80, dom=(8, 8), xbody=3,
     sim = Simulation((dom[1]*L, dom[2]*L), uBC, L; U, ν, g=gfun, body, T,
                      perdir, exitBC=(exit == :waterlily))
     FallingPlateSim(sim, state, dyn, sec, Ufar, afluid, x₀, Float64(L), U, ν, g, Δt_max, free,
-                    uexit, exit == :own, Float64(Da))
+                    uexit, exit == :own, Float64(Da), gust)
 end
 
 """
@@ -151,10 +178,11 @@ velocity, the frame body force and the body map, then advance the flow.
 function step!(fp::FallingPlateSim)
     sim, s = fp.sim, fp.state
     Δt = min(sim.flow.Δt[end], fp.Δt_max); sim.flow.Δt[end] = Δt
+    ag = gust_acceleration(fp.gust, sim_time(sim))/fp.L*fp.gust.dir   # grid units
     F, M = body_loads(fp)
-    step!(s, fp.dyn, to_lab(F), M, Δt; free=fp.free)
-    fp.Ufar[] = -to_grid(s.v)
-    fp.afluid[] = -to_grid(s.a)
+    step!(s, fp.dyn, to_lab(F), M, Δt; free=fp.free, gust=ag)
+    fp.Ufar[] = -to_grid(centre_velocity(s, fp.dyn))
+    fp.afluid[] = -to_grid(centre_acceleration(s, fp.dyn))
     update_exit!(fp)
     sim.body = setmap(sim.body; θ=s.θ, ω=s.ω)
     prepare_flow!(fp)
@@ -162,7 +190,7 @@ function step!(fp::FallingPlateSim)
     F, M, Δt
 end
 
-const CSV_HEADER = "t,X,Y,phi,vX,vY,omega,FX,FY,M,dt,pois"
+const CSV_HEADER = "t,X,Y,phi,vX,vY,omega,FX,FY,M,dt,pois,Xg,Zearth,uG"
 
 """
     run!(fp; tend, out=nothing, every=0.05, report=1.0, ωmax=10, vmax=4, Δt_min=1e-3)
@@ -187,9 +215,12 @@ function run!(fp::FallingPlateSim; tend, out=nothing, every=0.05, report=1.0,
         ω⁺ = s.ω*L/U
         if io !== nothing && t ≥ next_out
             Fl = to_lab(F)
-            @printf(io, "%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.4f,%d\n",
+            dG = gust_displacement(fp.gust, t)
+            @printf(io, "%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.5f,%.4f,%d,%.5f,%.5f,%.5f\n",
                 t, s.X[1]/L, s.X[2]/L, chord_angle(s.θ), s.v[1]/U, s.v[2]/U, ω⁺,
-                Fl[1]/(U^2*L), Fl[2]/(U^2*L), M/(U^2*L^2), Δt, last(sim.pois.n))
+                Fl[1]/(U^2*L), Fl[2]/(U^2*L), M/(U^2*L^2), Δt, last(sim.pois.n),
+                s.X[1]/L + dG*fp.gust.dir[1], s.X[2]/L + dG*fp.gust.dir[2],
+                gust_velocity(fp.gust, t))
             next_out += every
         end
         if t ≥ next_rep
