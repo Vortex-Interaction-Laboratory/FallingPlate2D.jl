@@ -340,8 +340,14 @@ To do: free-fall sweeps in `Da` at fixed `I*`, `Re` (the research question);
 a check against Bose et al. (2025) / Cummins et al. (2017) drag curves;
 momentum-balance force.
 
-### Phase D — repository hygiene (~2–3 h)
-Tests, GitHub Actions running the fast ones, README, examples.
+### Phase D — repository hygiene — **started 12 September 2026**
+Done: 21 fast tests (`test/runtests.jl`, < 1 min), GitHub Actions
+(`.github/workflows/CI.yml`, Julia LTS and latest on Ubuntu), `README.md`,
+`examples/free_fall.jl` and `examples/plot_run.jl`, repository pushed to
+<https://github.com/ignaziomviola/FallingPlate2D.jl> (private).
+Remaining: make the repository public when ready, tag `v0.1.0`, add the
+`voilab` topic, consider transferring to the organisation (see
+`GITHUB-TODO.md` in the OneDrive folder).
 
 **Total estimate: 1.5–2 days, 0.9–1.6 M tokens.**
 
