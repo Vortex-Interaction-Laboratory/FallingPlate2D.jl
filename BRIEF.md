@@ -321,6 +321,21 @@ the BDIM surface integral; for a thin plate the pressure jump across it is the
 Darcy drag, so this is consistent, but a momentum-balance force
 `−∑(1 − μ₀)(V − u* + Δt∇p)/Δt` would be cleaner and is the first Phase C+ task.
 
+Toy free-fall sweep (`scripts/phaseC_sweep.jl`, `χ = 4`, `ρ* = 2.7`,
+`Re_g = 500`, `L = 32`, means over 10–20 `c/U`):
+
+| `Da` | `⟨vy⟩/U` | `⟨vx⟩/U` | `⟨ω⟩ c/U` | `Re` on `⟨vy⟩` | motion |
+|---|---|---|---|---|---|
+| 0 | −0.53 | −0.18 | −0.38 | 266 | fluttering |
+| 10⁻⁴ | −0.68 | 0.02 | 0.04 | 340 | steady, broadside |
+| 10⁻³ | −1.54 | 0.00 | 0.00 | 770 | steady, broadside |
+| 10⁻² | −2.11 | −0.02 | 0.00 | 1054 | steady; stopped by the `Δt`/speed guard as it kept accelerating |
+
+Permeability kills the flutter already at `Da = 10⁻⁴` and the descent speed
+then rises steeply with `Da`, as for permeable disks (Cummins et al. 2017).
+At `Da = 10⁻²` the plate is nearly transparent and has no terminal speed
+within 20 `c/U` at this `Re_g`.
+
 To do: free-fall sweeps in `Da` at fixed `I*`, `Re` (the research question);
 a check against Bose et al. (2025) / Cummins et al. (2017) drag curves;
 momentum-balance force.
