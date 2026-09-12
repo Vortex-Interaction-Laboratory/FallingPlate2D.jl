@@ -257,6 +257,17 @@ data `out/andersen_dns_b8_L64.csv`, figure `.png` alongside):
 | `⟨vx⟩/|⟨vy⟩|` | 1.24 | 2.20 |
 | `⟨vy⟩/U` | −0.62 | −0.55 |
 
+**Resolution check (12 September 2026, afternoon).** The same case at
+`L = 96` (12 cells across the thickness, 770 × 770, 105 ms/step) follows the
+`L = 64` trajectory to within 2 % in position, angle and velocity for the
+first 8 `c/U` — a glide, a flip and a rise — and separates only in the fast
+dive at `t ≈ 10`, after which the two tumble differently (chaotic
+sensitivity, not a resolution error). Both end in an edge-on dive that trips
+the `|v| > 4U` guard (`L = 64` at 42.6 `c/U`, `L = 96` at 23.6 `c/U`), so
+long-time statistics need either a longer, guard-free run or an answer to
+why the plate stalls edge-on; `Re_g = 1500` is being tried. `L = 128` result:
+see below when available. Data: `out/andersen_dns_b8_L{64,96,128}.csv`.
+
 The tumbling is more irregular than in the experiment: phases of steady
 tumbling alternate with long glides reaching `2–3 U`, and the plate briefly
 rises at the end of some glides. Andersen's trajectories are periodic with
