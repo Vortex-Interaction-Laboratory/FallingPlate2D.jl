@@ -7,7 +7,7 @@ sim = Simulation((8L, 8L), (0.0, 0.0), L; U=1.0, ν, body=AutoBody(FP.sdf(sec), 
 for n in 1:150
     Δt = min(sim.flow.Δt[end], 0.5); sim.flow.Δt[end] = Δt
     global x₀ = x₀ + Δt*V; sim.body = setmap(sim.body; x₀, V)
-    measure!(sim); rigid_velocity_fill!(sim.flow, x₀, V, 0.0); sim_step!(sim; remeasure=false)
+    measure!(sim); rigid_velocity_fill!(sim.flow, sim.body, x₀, V, 0.0); sim_step!(sim; remeasure=false)
 end
 j = round(Int, x₀[2] + 1.5); i0 = round(Int, x₀[1] + 1.5)
 for di in -8:4:8; @printf("   %+3d  p=%9.4f  μ₀=%.2f\n", di, sim.flow.p[i0+di, j], sim.flow.μ₀[i0+di, j, 1]); end
@@ -20,7 +20,7 @@ for ωstar in (0.5, 2.0)
     s = fp.sim; ω = ωstar/fp.L; θr = fp.state.θ; tp = 0.0
     while sim_time(s) < 3.0
         Δt = min(s.flow.Δt[end], 0.5); s.flow.Δt[end] = Δt; θr += Δt*ω
-        s.body = setmap(s.body; θ=θr, ω); measure!(s); rigid_velocity_fill!(s.flow, fp.x₀, SA[0.0,0.0], ω); sim_step!(s; remeasure=false)
+        s.body = setmap(s.body; θ=θr, ω); measure!(s); rigid_velocity_fill!(s.flow, s.body, fp.x₀, SA[0.0,0.0], ω); sim_step!(s; remeasure=false)
         if sim_time(s) - tp ≥ 0.75
             Mp = -WaterLily.pressure_moment(fp.x₀, s)[1]; Mv = -WaterLily.viscous_moment(fp.x₀, s)[1]
             @printf("  ωc/U=%.1f t=%.2f  M_p=%9.4f  M_v=%9.4f  M/(U²c²)=%9.5f\n", ωstar, sim_time(s), Mp, Mv, (Mp+Mv)/fp.L^2); tp = sim_time(s)

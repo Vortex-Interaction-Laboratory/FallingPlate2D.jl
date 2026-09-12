@@ -16,6 +16,7 @@ struct FallingPlateSim{S<:Section}
     free::NTuple{3,Bool}             # (X, Y, θ) degrees of freedom released
     uexit::Vector{Float64}           # convective-exit x-velocity profile (all y indices)
     convective_exit::Bool
+    Da::Float64                      # Darcy number K/c²; 0 = impermeable
 end
 
 """
@@ -26,7 +27,8 @@ ratio `ρ`, released from rest at chord angle `φ₀` from the horizontal.
 `Re = c·U/ν` with `U = sqrt(2(ρ − 1) f g) = 1` the gravitational velocity
 scale (the realised Reynolds number on the mean descent speed is reported by
 `summarise`). Domain `dom .* L` cells, plate centre `xbody` chords from the
-inflow, lateral direction periodic, convective exit downstream.
+inflow, lateral direction periodic, convective exit downstream. `Da > 0`
+makes the plate permeable (Darcy–Brinkman, see `darcy.jl`).
 
 The convective exit is implemented here through the boundary function rather
 than with WaterLily's `exitBC=true`: WaterLily recomputes and flux-corrects its
@@ -39,7 +41,7 @@ values. `exit=:waterlily` uses WaterLily's `exitBC=true`, `exit=:dirichlet` a
 plain Dirichlet exit (both for diagnostics).
 """
 function falling_plate(; χ=14.0, ρ=2.7, Re=2090.0, L=80, dom=(8, 8), xbody=3,
-                        shape=:ellipse, φ₀=0.1, T=Float64, Δt_max=0.5, free=(true, true, true), perdir=(2,), exit=:own)
+                        shape=:ellipse, φ₀=0.1, T=Float64, Δt_max=0.5, free=(true, true, true), perdir=(2,), exit=:own, Da=0.0)
     sec = shape == :ellipse ? Ellipse(L, χ) : RoundedPlate(L, χ)
     U = 1.0
     g = U^2/(2(ρ - 1)*thickness(sec))
@@ -60,7 +62,7 @@ function falling_plate(; χ=14.0, ρ=2.7, Re=2090.0, L=80, dom=(8, 8), xbody=3,
     sim = Simulation((dom[1]*L, dom[2]*L), uBC, L; U, ν, g=gfun, body, T,
                      perdir, exitBC=(exit == :waterlily))
     FallingPlateSim(sim, state, dyn, sec, Ufar, afluid, x₀, Float64(L), U, ν, g, Δt_max, free,
-                    uexit, exit == :own)
+                    uexit, exit == :own, Float64(Da))
 end
 
 """
@@ -89,7 +91,7 @@ function update_exit!(fp::FallingPlateSim)
 end
 
 """
-    rigid_velocity_fill!(flow, x₀, v, ω)
+    rigid_velocity_fill!(flow, body, x₀, v, ω)
 
 Set the imposed body velocity `flow.V` on every face lying fully inside the
 body (`μ₀ == 0`) to the rigid-body value `v + ω × (x − x₀)`.
@@ -103,15 +105,33 @@ of O(10⁴) that leaks into the surface band and corrupts the force and moment
 velocity makes it divergence-free and restores a smooth interior pressure.
 Call after `measure!` and before the flow step.
 """
-function rigid_velocity_fill!(flow, x₀::SVector{2}, v::SVector{2}, ω::Real)
+function rigid_velocity_fill!(flow, body, x₀::SVector{2}, v::SVector{2}, ω::Real)
     μ₀, V = flow.μ₀, flow.V
-    T = eltype(V); N = size(flow.p)
+    T = eltype(V); N = size(flow.p); t = sum(flow.Δt)
     @inbounds for i in 1:2, I in CartesianIndices(N)
         if μ₀[I, i] == 0
-            r = WaterLily.loc(i, I, T) - x₀
+            x = WaterLily.loc(i, I, T)
+            WaterLily.sdf(body, x, t) < 0 || continue     # skip the zero-mobility boundary faces
+            r = x - x₀
             V[I, i] = i == 1 ? v[1] - ω*r[2] : v[2] + ω*r[1]
         end
     end
+    nothing
+end
+
+"""
+    prepare_flow!(fp)
+
+Measure the body, fill the interior rigid velocity, apply the Darcy mobility,
+and refresh the Poisson operator: everything `sim_step!(remeasure=true)` would
+do, plus the two corrections. Call after the body map has been updated.
+"""
+function prepare_flow!(fp::FallingPlateSim)
+    sim = fp.sim
+    measure!(sim.flow, sim.body; t=sum(sim.flow.Δt), ϵ=sim.ϵ)
+    rigid_velocity_fill!(sim.flow, sim.body, fp.x₀, zero(fp.x₀), fp.state.ω)   # body centre fixed in the frame
+    apply_darcy!(sim.flow, fp.Da, fp.L)
+    WaterLily.update!(sim.pois)
     nothing
 end
 
@@ -137,8 +157,7 @@ function step!(fp::FallingPlateSim)
     fp.afluid[] = -to_grid(s.a)
     update_exit!(fp)
     sim.body = setmap(sim.body; θ=s.θ, ω=s.ω)
-    measure!(sim)
-    rigid_velocity_fill!(sim.flow, fp.x₀, zero(fp.x₀), s.ω)   # body centre fixed in the frame
+    prepare_flow!(fp)
     sim_step!(sim; remeasure=false)
     F, M, Δt
 end

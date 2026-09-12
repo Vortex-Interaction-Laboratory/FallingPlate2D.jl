@@ -288,17 +288,42 @@ case. The `χ = 14` literal plate is discussed in section 6.
 resolution; torque is a small residual of nearly cancelling surface integrals,
 so it is the sensitive quantity.
 
-### Phase C — permeability (~half a day)
-Add a Brinkman resistance `−(ν/K)·χ_s·(u − u_s)` to the BDIM forcing. BDIM is
-already a smoothed volume-penalisation method, so this is a modification of
-existing forcing rather than a new capability — the single strongest reason
-WaterLily was chosen.
+### Phase C — permeability — **implemented 12 September 2026** (`src/darcy.jl`)
 
-- Treat the term **implicitly**: it is stiff (`ν/K` large) but local and linear.
-- **Resolution floor:** must resolve the Brinkman screening length `c·√Da`. At
-  `Da = 10⁻⁴` this needs `Δ ≲ 10⁻²·c`, coarser than the thickness already
-  demands, so it is free. It only bites below ca. `Da = 10⁻⁶`, where cost scales
-  as `Da^(−1/2)` per direction.
+The implicit Brinkman update `u(1 + Δtσ) = u* − Δt∇p + ΔtσV`, `σ = ν/K`, has
+exactly the form of WaterLily's BDIM blend `u = μ₀(u* − Δt∇p) + (1 − μ₀)V`
+with `μ₀ = 1/(1 + Δtσ)`, and the same coefficient is the pressure Poisson
+mobility. So a permeable plate is the BDIM body with its interior mobility
+raised from 0 to `μ_p = 1/(1 + Δt ν/(Da c²))`, blended through the kernel:
+`μ₀ ← μ₀ + (1 − μ₀) μ_p`, `μ₁ = 0`. `Da → 0` recovers the impermeable body
+exactly. Nothing else changes: no sub-iteration, one Poisson iteration per
+step as before. Two details that matter: the domain-boundary faces must be
+reset to zero mobility afterwards (otherwise the pressure solver diverges to
+NaN), and the interior velocity fill must test the SDF, not just `μ₀ == 0`.
+
+Held broadside plate, `χ = 4`, `L = 32`, `Re = 200`, 4 `c/U`
+(`scripts/phaseC_held.jl`):
+
+| `Da` | `C_D` | seepage `u/U` at the centre | screening length `c√Da` / Δ |
+|---|---|---|---|
+| 0 | 1.55 | 0 | 0 |
+| 10⁻⁵ | 1.52 | 0.009 | 0.1 |
+| 10⁻⁴ | 1.51 | 0.08 | 0.3 |
+| 10⁻³ | 0.94 | 0.55 | 1.0 |
+| 10⁻² | 0.14 | 0.95 | 3.2 |
+
+The trend matches Cummins et al. (2017): the drag collapses once the
+screening length exceeds the cell size, i.e. the interesting range
+`Da = 10⁻⁴`–`10⁻²` is resolved at `Δ = c/32`, while `Da ≤ 10⁻⁵` is
+numerically indistinguishable from impermeable at this resolution (as the
+resolution-floor argument above predicts). Force on a permeable plate is still
+the BDIM surface integral; for a thin plate the pressure jump across it is the
+Darcy drag, so this is consistent, but a momentum-balance force
+`−∑(1 − μ₀)(V − u* + Δt∇p)/Δt` would be cleaner and is the first Phase C+ task.
+
+To do: free-fall sweeps in `Da` at fixed `I*`, `Re` (the research question);
+a check against Bose et al. (2025) / Cummins et al. (2017) drag curves;
+momentum-balance force.
 
 ### Phase D — repository hygiene (~2–3 h)
 Tests, GitHub Actions running the fast ones, README, examples.

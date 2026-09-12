@@ -19,10 +19,11 @@ using WaterLily, StaticArrays, LinearAlgebra, Printf
 
 export Ellipse, RoundedPlate, area, inertia, added_mass, andersen_Istar
 export RigidState, PlateDynamics, FallingPlateSim, falling_plate, step!, run!, rigid_velocity_fill!
-export summarise, to_lab, to_grid
+export summarise, to_lab, to_grid, apply_darcy!, prepare_flow!, screening_length
 
 include("bodies.jl")
 include("rigid.jl")
+include("darcy.jl")
 include("simulation.jl")
 include("diagnostics.jl")
 
