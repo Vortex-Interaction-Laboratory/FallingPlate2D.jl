@@ -15,11 +15,12 @@ positive anticlockwise, so `φ = 0` is broadside to the fall.
 """
 module FallingPlate2D
 
-using WaterLily, StaticArrays, LinearAlgebra, Printf
+using WaterLily, StaticArrays, LinearAlgebra, Printf, JLD2
 
 export Ellipse, RoundedPlate, area, inertia, added_mass, andersen_Istar
 export RigidState, PlateDynamics, FallingPlateSim, falling_plate, step!, run!, rigid_velocity_fill!
-export Gust, NOGUST, gust_velocity, gust_acceleration, gust_displacement, peak_acceleration
+export Gust, NOGUST, gust_velocity, gust_acceleration, gust_displacement, peak_acceleration, gravity_modulation
+export save_checkpoint, load_checkpoint!
 export summarise, to_lab, to_grid, apply_darcy!, prepare_flow!, screening_length
 
 include("bodies.jl")
@@ -28,5 +29,6 @@ include("rigid.jl")
 include("darcy.jl")
 include("simulation.jl")
 include("diagnostics.jl")
+include("checkpoint.jl")
 
 end

@@ -70,3 +70,21 @@ end
 
 "Peak gust acceleration."
 peak_acceleration(g::Gust) = g.isolated ? abs(g.GR)*π/g.T_G : abs(g.GR)*π/(2g.T_G)
+
+"""
+    gravity_modulation(; amplitude=0.5, T_G=2.0, t₀, g)
+
+A `Gust` that modulates the gravitational force over one period `T_G`: the
+effective gravity falls to `(1 − amplitude)·g`, returns to `g`, rises to
+`(1 + amplitude)·g` and returns, with no net impulse.
+
+A gust enters the dynamics only as `g_eff = g − u̇_G`, so a vertical isolated
+gust of ratio `GR = −amplitude·g·T_G/π` is exactly this modulation. Unlike a
+true fluid gust the fluid is not displaced here, so the `Zearth` and `uG`
+columns of the output, which track fluid displacement, do not apply.
+
+`g` is the nondimensional gravitational acceleration (`1/m` in the permeable
+convention), and `t₀` the onset in convective times.
+"""
+gravity_modulation(; amplitude=0.5, T_G=2.0, t₀, g) =
+    Gust(; dir=SA[0.0, 1.0], GR=-amplitude*g*T_G/π, t₀, T_G, isolated=true)

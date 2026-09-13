@@ -114,3 +114,30 @@ end
         @test sign(s.α) == -sign(φ)                  # rotates the chord back towards horizontal
     end
 end
+
+@testset "gravity modulation reaches the requested extremes" begin
+    g, T_G, t₀, A = 1.25, 2.0, 5.0, 0.5
+    gm = gravity_modulation(; amplitude=A, T_G, t₀, g)
+    ratio(t) = 1 + gust_acceleration(gm, t)/g
+    @test ratio(t₀ - 0.1) ≈ 1                       # quiescent before onset
+    @test ratio(t₀ + T_G/4) ≈ 1 - A   atol=1e-12    # down to 0.5 g
+    @test ratio(t₀ + T_G/2) ≈ 1       atol=1e-12    # back to g
+    @test ratio(t₀ + 3T_G/4) ≈ 1 + A  atol=1e-12    # up to 1.5 g
+    @test ratio(t₀ + T_G + 0.1) ≈ 1                 # and back, no net impulse
+    @test gust_velocity(gm, t₀ + T_G) ≈ 0 atol=1e-12
+end
+
+@testset "checkpoint restart reproduces the uninterrupted run" begin
+    mk() = falling_plate(; χ=10.0, m=0.8, e=1.16, I_O=1.15, Da=1e-4, Ga=150.0,
+                         L=16, dom=(5, 5), xbody=2.5, shape=:plate)
+    f = tempname() * ".jld2"
+    a = mk(); run!(a; tend=0.3, report=1e9); save_checkpoint(a, f)
+    run!(a; tend=0.6, report=1e9)
+    b = mk(); load_checkpoint!(b, f); run!(b; tend=0.6, report=1e9)
+    @test a.state.X ≈ b.state.X
+    @test a.state.v ≈ b.state.v
+    @test a.state.θ ≈ b.state.θ
+    @test a.state.ω ≈ b.state.ω
+    @test sum(a.sim.flow.Δt) ≈ sum(b.sim.flow.Δt)
+    rm(f, force=true)
+end
