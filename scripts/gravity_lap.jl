@@ -17,7 +17,7 @@ include("gust_cases.jl")
 mode = length(ARGS) ≥ 1 ? ARGS[1] : "lap1"
 L    = length(ARGS) ≥ 2 ? parse(Int, ARGS[2]) : 64
 P    = (; D2..., Ga=150.0, Da=1e-4)
-tlap, tadd = 20.0, 10.0          # to terminal velocity, then the comparison window
+tlap, tadd = 50.0, 10.0          # to terminal velocity, then the comparison window
 g    = 1/P.m                     # nondimensional gravity
 mkpath("out"); mkpath("ckpt")
 
@@ -28,11 +28,24 @@ if mode == "lap1"
     save_checkpoint(fp, "ckpt/lap1.jld2")
     println("saved ckpt/lap1.jld2 at t = ", round(tlap, digits=3))
 
-elseif mode in ("end1", "end2")
-    gust = mode == "end1" ? NOGUST :
-           gravity_modulation(; amplitude=0.5, T_G=2.0, t₀=tlap, g)
+elseif mode == "extend"                      # continue lap1 from its checkpoint
+    tend = parse(Float64, ARGS[3])
+    fp = case(P; L)
+    header(fp, "lap1 extension → t=$tend")
+    load_checkpoint!(fp, "ckpt/lap1.jld2")
+    run!(fp; tend, out="out/lap1_ext.csv", every=0.02, report=1.0)
+    save_checkpoint(fp, "ckpt/lap1.jld2")
+    println("extended checkpoint saved at t = ", tend)
+
+elseif mode in ("end1", "end2", "end3")
+    # end2: gravity falls to 0.5 g first, then rises to 1.5 g
+    # end3: the same modulation with the sign inverted — rises to 1.5 g first
+    amp  = mode == "end2" ? 0.5 : -0.5
+    gust = mode == "end1" ? NOGUST : gravity_modulation(; amplitude=amp, T_G=2.0, t₀=tlap, g)
     fp = case(P; L, gust)
-    header(fp, mode == "end1" ? "end1  (constant gravity)" : "end2  (modulated gravity)")
+    header(fp, mode == "end1" ? "end1  (constant gravity)" :
+               mode == "end2" ? "end2  (gravity down first, 0.5 g → 1.5 g)" :
+                                "end3  (gravity up first, 1.5 g → 0.5 g)")
     load_checkpoint!(fp, "ckpt/lap1.jld2")
     @printf("restarted at t=%.3f  Y/c=%.4f  vY=%.4f\n",
             sum(fp.sim.flow.Δt[1:end-1])*fp.U/fp.L, fp.state.X[2]/fp.L, fp.state.v[2]/fp.U)
