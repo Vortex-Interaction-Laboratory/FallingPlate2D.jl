@@ -23,4 +23,5 @@ name = @sprintf("h_%s_A%.1f_%s", T, A, ord)
 header(fp, name)
 load_checkpoint!(fp, "ckpt/flap_$T.jld2")         # reuse the fixed-angle terminal state
 st = run!(fp; tend=TLAP+TADD, out="out/$name.csv", every=0.02, report=2.0, vmax=8.0, ωmax=20.0)
+save_checkpoint(fp, "ckpt/$name.jld2")
 println("$name: $st")

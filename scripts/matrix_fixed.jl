@@ -18,7 +18,16 @@ build(Da; gust=NOGUST) = falling_plate(; χ=D2.χ, m=D2.m, e=D2.e, I_O=D2.I_O, D
 mode = ARGS[1]; Da = parse(Float64, ARGS[2]); T = tag(Da)
 mkpath("out"); mkpath("ckpt")
 
-if mode == "lap"
+if mode == "extend"                       # continue the lap from its checkpoint
+    tend = parse(Float64, ARGS[3])
+    fp = build(Da)
+    header(fp, "FIXED-θ lap Da=$T extend → t=$tend")
+    load_checkpoint!(fp, "ckpt/flap_$T.jld2")
+    run!(fp; tend, out="out/flap_$(T)_ext.csv", every=0.05, report=5.0) == :done || error("aborted")
+    save_checkpoint(fp, "ckpt/flap_$(T)_t$(Int(tend)).jld2")
+    println("saved ckpt/flap_$(T)_t$(Int(tend)).jld2")
+
+elseif mode == "lap"
     fp = build(Da)
     header(fp, "FIXED-θ lap Da=$T → t=$TLAP")
     run!(fp; tend=TLAP, out="out/flap_$T.csv", every=0.05, report=5.0) == :done || error("lap aborted")
