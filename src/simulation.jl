@@ -221,6 +221,7 @@ function run!(fp::FallingPlateSim; tend, out=nothing, every=0.05, report=1.0,
                 Fl[1]/(U^2*L), Fl[2]/(U^2*L), M/(U^2*L^2), Δt, last(sim.pois.n),
                 s.X[1]/L + dG*fp.gust.dir[1], s.X[2]/L + dG*fp.gust.dir[2],
                 gust_velocity(fp.gust, t))
+            flush(io)          # so an interrupted run leaves an honest file
             next_out += every
         end
         if t ≥ next_rep
