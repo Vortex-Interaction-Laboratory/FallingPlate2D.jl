@@ -19,6 +19,22 @@ sweep at `Da=1e-5`, semi-amplitude `A=2.5`, rotation locked.
 - **Resume after any interruption:** `nohup ./scripts/chain_ga.sh >> logs/chain_ga.log 2>&1 &`
   (completed runs are skipped only if their CSV ends at `t=40`).
 
+### FIRST ACTION for a new session: arm a waiter
+
+The waiter armed in the previous session died with it, so nothing will report
+when the campaign finishes. Arm one before doing anything else, as a
+**background** Bash call so it notifies on completion:
+
+```bash
+cd ~/Developer/FallingPlate2D.jl && until grep -qE "GA MATRIX DONE|exit=[1-9]" logs/chain_ga.log 2>/dev/null; do sleep 60; done; echo "GA CAMPAIGN COMPLETE $(date +%T)"; grep -c "end   " logs/chain_ga.log
+```
+
+Note the pattern matches a non-zero exit as well as success: a watcher that
+greps only for the success marker stays silent through a crash, and silence
+then looks identical to still running. Do the same for any future campaign.
+If the campaign has already finished by the time the new session starts, skip
+this and go straight to the analysis.
+
 Deliberately uses the same lap length and branch window as the `Ga=150`
 campaign, for comparability rather than convergence. See section 3.
 
