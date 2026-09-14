@@ -84,7 +84,12 @@ true fluid gust the fluid is not displaced here, so the `Zearth` and `uG`
 columns of the output, which track fluid displacement, do not apply.
 
 `g` is the nondimensional gravitational acceleration (`1/m` in the permeable
-convention), and `t₀` the onset in convective times.
+convention), and `t₀` the onset in convective times. `dir` is the lab-frame
+direction of the perturbation: `[0,1]` modulates the weight itself, while
+`[1,0]` adds a transient horizontal force and leaves the vertical component of
+gravity untouched. A positive `amplitude` drives the effective gravity along
+`+dir` first; for the vertical default that means the weight is *reduced*
+first.
 """
-gravity_modulation(; amplitude=0.5, T_G=2.0, t₀, g) =
-    Gust(; dir=SA[0.0, 1.0], GR=-amplitude*g*T_G/π, t₀, T_G, isolated=true)
+gravity_modulation(; amplitude=0.5, T_G=2.0, t₀, g, dir=SA[0.0, 1.0]) =
+    Gust(; dir, GR=-amplitude*g*T_G/π, t₀, T_G, isolated=true)
